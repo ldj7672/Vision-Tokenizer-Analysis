@@ -1,0 +1,144 @@
+# Vision Tokenizer Benchmark - Discrete Tokenizers (Full Validation Set)
+#
+# COCO validation set 전체 (5000 images)에 대한 벤치마크
+# 정확한 성능 평가를 위한 설정
+
+# 실행 환경 설정
+device: cuda  # cuda or cpu
+use_multi_gpu: true  # Enable multi-GPU processing (if available)
+output_dir: results/discrete_tokenizers_full
+seed: 42
+
+# 데이터셋 설정
+dataset:
+  name: coco
+  root: data/coco
+  split: val
+  year: 2017
+  num_samples: 1000  
+  image_size: [512, 512]  # 모든 모델을 512px로 통일
+
+# Discrete Tokenizers
+tokenizers:
+  # ========================================
+  # 1. TA-Tok + De-Tokenizers (모두 자동 다운로드 ✅)
+  # ========================================
+  # TA-Tok: 인코더 (이미지 → 토큰)
+  # De-Tokenizer: 디코더 (토큰 → 이미지)
+  #   - AR-DTok: Autoregressive (256/512/1024px)
+  #   - SANA Dif-DTok: Diffusion (512/1024px)
+  #   - Lumina2 Dif-DTok: Diffusion (1024px) 🌟 권장
+  
+  # ========================================
+  # 1-1. TA-Tok + AR-DTok (Autoregressive)
+  # ========================================
+  
+  # AR-DTok 512px ✅
+  - name: tatok_ardtok_512
+    type: tatok_ardtok
+    ta_tok_checkpoint: model_weights/ta_tok.pth
+    ar_dtok_checkpoint: csuhan/TA-Tok
+    output_size: 512
+    enabled: true
+    description: "TA-Tok + AR-DTok (AR, 512px)"
+  
+  # ========================================
+  # 1-2. TA-Tok + SANA Dif-DTok (Diffusion)
+  # ========================================
+  
+  # SANA 512px ✅
+  - name: tatok_sana_512
+    type: tatok_sana
+    ta_tok_checkpoint: model_weights/ta_tok.pth
+    sana_model: csuhan/Tar-SANA-600M-512px
+    output_size: 512
+    enabled: true
+    description: "TA-Tok + SANA Dif-DTok (Diffusion, 512px)"
+  
+  
+  # ========================================
+  # 1-3. TA-Tok + Lumina2 Dif-DTok (Diffusion) 🌟
+  # ========================================
+  
+  # Lumina2 1024px → 512px 리사이즈 ✅
+  - name: tatok_lumina2_512
+    type: tatok_lumina2
+    ta_tok_checkpoint: model_weights/ta_tok.pth
+    lumina2_model: csuhan/Tar-Lumina2
+    output_size: 512
+    enabled: true
+    description: "TA-Tok + Lumina2 Dif-DTok (Diffusion, 1024px→512px) 🌟 Best Quality"
+  
+  # ========================================
+  # 2. Open-MAGVIT2 (Lookup Free Quantization)
+  # ========================================
+  # 자동 다운로드: TencentARC/Open-MAGVIT2
+  
+  # Open-MAGVIT2 256px ✅ (사전 학습된 모델 사용)
+  - name: magvit2_256
+    type: magvit2
+    model_name: TencentARC/Open-MAGVIT2
+    image_size: 256
+    codebook_size: 262144  # 18-bit
+    enabled: true
+    description: "Open-MAGVIT2 with LFQ (256px, codebook=262144)"
+  
+  # ========================================
+  # 3. TiTok (1D Latent Tokenization)
+  # ========================================
+  # 자동 다운로드: fun-research/TiTok
+  
+  # TiTok-L-32 256px ✅ (사전 학습된 모델 사용)
+  - name: titok_l32_256
+    type: titok
+    image_size: 256
+    num_latent_tokens: 32
+    codebook_size: 4096
+    model_name: yucornetto/tokenizer_titok_l32_imagenet
+    enabled: true
+    description: "TiTok-L-32: An Image is Worth 32 Tokens (256px)"
+  
+  # ========================================
+  # 4. VAE + Quantization (Baseline)
+  # ========================================
+  
+  # SD VAE - MSE + Quantization (8bit) ✅
+  - name: vae_sd_mse_q8_512
+    type: vae
+    model_name: stabilityai/sd-vae-ft-mse
+    image_size: 512
+    quantize_bits: 8
+    enabled: true
+    description: "SD VAE MSE with 8-bit quantization (512px, baseline)"
+
+
+# 평가 메트릭 설정
+metrics:
+  reconstruction:
+    - psnr
+    - ssim
+    - lpips
+    - mae
+    - rmse
+    - fid  # Fréchet Inception Distance
+
+# 출력 설정
+output:
+  save_reconstructions: true  # 재구성 이미지 저장 (5000개 * 6 모델 = 30000 이미지)
+  save_tokens: false
+  save_format: both  # csv와 parquet 모두
+  generate_visualizations: true
+  visualization_samples: 100  # 시각화에 사용할 샘플 수
+
+# 성능 설정
+performance:
+  batch_size: 1
+  num_workers: 4
+  pin_memory: true
+
+# 로깅 설정
+logging:
+  level: INFO
+  log_file: results/discrete_tokenizers_full/benchmark.log
+  progress_bar: true
+
